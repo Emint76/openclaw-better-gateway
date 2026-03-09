@@ -70,6 +70,7 @@ describe("Better Gateway Plugin", () => {
 
   describe("register", () => {
     let mockApi: {
+      http?: { registerRoute: Mock };
       registerHttpRoute: Mock;
       logger: { info: Mock; warn: Mock; error: Mock; debug: Mock };
       dataDir: string;
@@ -102,6 +103,19 @@ describe("Better Gateway Plugin", () => {
       expect(typeof mockApi.registerHttpRoute.mock.calls[0][0].handler).toBe(
         "function"
       );
+    });
+
+    it("should prefer api.http.registerRoute when available", () => {
+      mockApi.http = { registerRoute: vi.fn() };
+      plugin.register(mockApi);
+
+      expect(mockApi.http.registerRoute).toHaveBeenCalledTimes(1);
+      expect(mockApi.registerHttpRoute).not.toHaveBeenCalled();
+      expect(mockApi.http.registerRoute.mock.calls[0][0]).toMatchObject({
+        path: "/better-gateway",
+        match: "prefix",
+        auth: "plugin",
+      });
     });
 
     it("should log initialization with default config", () => {

@@ -28,7 +28,23 @@ interface PluginConfig {
 
 // Minimal type for the plugin API we actually use
 interface PluginApi {
-  registerHttpRoute: (params: {
+  http?: {
+    registerRoute: (params: {
+      path: string;
+      match?: "exact" | "prefix";
+      auth: "gateway" | "plugin";
+      handler: (req: IncomingMessage, res: ServerResponse) => Promise<boolean | void> | boolean | void;
+      replaceExisting?: boolean;
+    }) => void;
+  };
+  registerHttpRoute?: (params: {
+    path: string;
+    match?: "exact" | "prefix";
+    auth: "gateway" | "plugin";
+    handler: (req: IncomingMessage, res: ServerResponse) => Promise<boolean | void> | boolean | void;
+    replaceExisting?: boolean;
+  }) => void;
+  registerHttpHandler?: (params: {
     path: string;
     match?: "exact" | "prefix";
     auth: "gateway" | "plugin";
@@ -43,6 +59,34 @@ interface PluginApi {
   };
   pluginConfig?: Record<string, unknown>;
   resolvePath: (input: string) => string;
+}
+
+function registerHttpPluginRoute(
+  api: PluginApi,
+  params: {
+    path: string;
+    match?: "exact" | "prefix";
+    auth: "gateway" | "plugin";
+    handler: (req: IncomingMessage, res: ServerResponse) => Promise<boolean | void> | boolean | void;
+    replaceExisting?: boolean;
+  }
+): void {
+  if (api.http?.registerRoute) {
+    api.http.registerRoute(params);
+    return;
+  }
+
+  if (api.registerHttpRoute) {
+    api.registerHttpRoute(params);
+    return;
+  }
+
+  if (api.registerHttpHandler) {
+    api.registerHttpHandler(params);
+    return;
+  }
+
+  throw new Error("OpenClaw plugin API does not support HTTP route registration");
 }
 
 const DEFAULT_CONFIG: PluginConfig = {
@@ -286,7 +330,7 @@ export default {
     const gatewayToken = loadGatewayToken();
 
     // Register the main HTTP handler for /better-gateway/* routes
-    api.registerHttpRoute({
+    registerHttpPluginRoute(api, {
       path: "/better-gateway",
       match: "prefix",
       auth: "plugin",
